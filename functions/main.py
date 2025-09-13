@@ -21,9 +21,14 @@ def fetch_and_summarize_articles(req: https_fn.Request) -> https_fn.Response:
     """
     Google NewsのRSSからコーヒー関連の記事を取得して、
     Geminiで要約してFirestoreに保存するHTTP関数だよん！
+    Cloud Schedulerからの呼び出しを想定しているよ。
     """
+    # ★★★セキュリティチェック！★★★
+    # Cloud Schedulerからのリクエストか、テスト用のリクエストじゃなかったら処理を中断する
+    if req.headers.get("X-CloudScheduler") != "true" and req.headers.get("X-Test-Request") != "true":
+        print("不正な呼び出しの可能性があるため、処理を中断しました。")
+        return https_fn.Response("このエンドポイントはCloud Schedulerからのみ呼び出せます。", status=403)
 
-    # ★★★ここがポイント！★★★ 関数が呼ばれてからGeminiの準備をする！
     genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
     
     # Firestoreのデータベースに接続！
