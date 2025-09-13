@@ -31,19 +31,28 @@ export default async function HomePage() {
   const articlesCollection = collection(db, "articles");
 
   // 日本の記事を最新30件取得
-  const japanQuery = query(articlesCollection, where("category", "==", "japan"), orderBy("created_at", "desc"), limit(30));
-  
-  // 海外の記事を最新30件取得
-  const worldCategories = ["usa", "australia", "italy", "germany", "gb", "france"];
-  const worldQuery = query(articlesCollection, where("category", "in", worldCategories), orderBy("created_at", "desc"), limit(30));
+  const japanQuery = query(
+    articlesCollection,
+    where("category", "==", "japan"),
+    orderBy("created_at", "desc"),
+    limit(30)
+  );
 
-  // 日本と海外の記事を同時に取得するよ
-  const [japanSnapshot, worldSnapshot] = await Promise.all([
-    getDocs(japanQuery),
-    getDocs(worldQuery)
-  ]);
-
+  // まず日本の記事だけ先に取得する
+  const japanSnapshot = await getDocs(japanQuery);
   const japanArticles = processSnapshot(japanSnapshot);
+
+  // 次に海外の記事を取得する
+  // in句は内部で複数のクエリに分割され、他のクエリに影響を与える可能性があるため、
+  // 確実に全件取得するために、あえて日本の記事取得と処理を分ける
+  const worldCategories = ["usa", "australia", "italy", "germany", "gb", "france"];
+  const worldQuery = query(
+    articlesCollection,
+    where("category", "in", worldCategories),
+    orderBy("created_at", "desc"),
+    limit(30)
+  );
+  const worldSnapshot = await getDocs(worldQuery);
   const worldArticles = processSnapshot(worldSnapshot);
 
   // カテゴリごとの国旗
