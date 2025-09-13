@@ -1,5 +1,5 @@
 import { db } from "@/lib/firebase";
-import { collection, getDocs, orderBy, query, limit } from "firebase/firestore";
+import { collection, getDocs, orderBy, query, limit, where, QuerySnapshot } from "firebase/firestore";
 
 // Articleの型を定義しとく
 type Article = {
@@ -13,35 +13,38 @@ type Article = {
   created_at: string; // ★取得日時を追加
 };
 
-// データを取得する関数
-async function getArticles(): Promise<Article[]> {
-  const articlesCollection = collection(db, "articles");
-  // 作成日で降順（新しい順）に並び替えて、最新50件だけ取得
-  const q = query(articlesCollection, orderBy("created_at", "desc"), limit(50));
-  const querySnapshot = await getDocs(q);
-
-  const articles = querySnapshot.docs.map((doc) => {
+// FirestoreのデータをArticle型に変換するヘルパー関数
+const processSnapshot = (snapshot: QuerySnapshot): Article[] => {
+  return snapshot.docs.map((doc) => {
     const data = doc.data();
     return {
       id: doc.id,
       ...data,
-      // ★ Timestampを人間が読める形式の文字列に変換
       created_at: data.created_at
         ? data.created_at.toDate().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })
         : '取得日時不明',
     } as Article;
   });
-
-  return articles;
-}
+};
 
 export default async function HomePage() {
-  const articles = await getArticles();
+  const articlesCollection = collection(db, "articles");
 
-  // カテゴリ別に記事を分ける
-  const japanArticles = articles.filter(article => article.category === 'japan');
-  // 'japan'でもなく、カテゴリがちゃんと存在するものだけを海外ニュースにする
-  const worldArticles = articles.filter(article => article.category && article.category !== 'japan');
+  // 日本の記事を最新30件取得
+  const japanQuery = query(articlesCollection, where("category", "==", "japan"), orderBy("created_at", "desc"), limit(30));
+  
+  // 海外の記事を最新30件取得
+  const worldCategories = ["usa", "australia", "italy", "germany", "gb", "france"];
+  const worldQuery = query(articlesCollection, where("category", "in", worldCategories), orderBy("created_at", "desc"), limit(30));
+
+  // 日本と海外の記事を同時に取得するよ
+  const [japanSnapshot, worldSnapshot] = await Promise.all([
+    getDocs(japanQuery),
+    getDocs(worldQuery)
+  ]);
+
+  const japanArticles = processSnapshot(japanSnapshot);
+  const worldArticles = processSnapshot(worldSnapshot);
 
   // カテゴリごとの国旗
   const categoryFlags: { [key: string]: string } = {
