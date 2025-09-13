@@ -89,8 +89,11 @@ def fetch_and_summarize_articles(req: https_fn.Request) -> https_fn.Response:
             
             root = ET.fromstring(response.content)
             
-            # 各カテゴリから最新5件の記事を処理するよ
-            for item in root.findall('.//item')[:5]:
+            # 日本の記事は10件、それ以外は5件取得するよ
+            num_articles_to_fetch = 10 if feed['category'] == 'japan' else 5
+
+            # 各カテゴリから最新の記事を処理するよ
+            for item in root.findall('.//item')[:num_articles_to_fetch]:
                 title = item.find('title').text
                 link = item.find('link').text
                 pub_date = item.find('pubDate').text

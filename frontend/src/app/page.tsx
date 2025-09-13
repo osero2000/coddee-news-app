@@ -27,7 +27,7 @@ async function getArticles(): Promise<Article[]> {
       ...data,
       // ★ Timestampを人間が読める形式の文字列に変換
       created_at: data.created_at
-        ? data.created_at.toDate().toLocaleString('ja-JP')
+        ? data.created_at.toDate().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })
         : '取得日時不明',
     } as Article;
   });
