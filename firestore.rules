@@ -2,10 +2,14 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // articlesコレクションは誰でも読み取りOKにする
+    // articlesコレクションは、誰でも読み取りOK
     match /articles/{articleId} {
       allow read: if true;
-      allow write: if false; // 書き込みは引き続きNG！
+      allow write: if false; // ★超重要★ クライアントからの書き込みは一切禁止！
+    }
+    // 将来追加するかもしれない他のコレクションは、デフォルトで全て拒否
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
