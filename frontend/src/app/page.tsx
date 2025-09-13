@@ -30,12 +30,12 @@ const processSnapshot = (snapshot: QuerySnapshot): Article[] => {
 export default async function HomePage() {
   const articlesCollection = collection(db, "articles");
 
-  // 日本の記事を最新30件取得
+  // 日本の記事を最新15件取得
   const japanQuery = query(
     articlesCollection,
     where("category", "==", "japan"),
     orderBy("created_at", "desc"),
-    limit(30)
+    limit(15)
   );
 
   // まず日本の記事だけ先に取得する
