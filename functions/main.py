@@ -90,8 +90,8 @@ def fetch_and_summarize_articles(req: https_fn.Request) -> https_fn.Response:
             
             root = ET.fromstring(response.content)
             
-            # 各カテゴリから最新2件の記事を処理するよ
-            for item in root.findall('.//item')[:2]:
+            # 各カテゴリから最新5件の記事を処理するよ
+            for item in root.findall('.//item')[:5]:
                 title = item.find('title').text
                 link = item.find('link').text
                 pub_date = item.find('pubDate').text

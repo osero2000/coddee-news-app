@@ -1,5 +1,5 @@
 import { db } from "@/lib/firebase";
-import { collection, getDocs, orderBy, query } from "firebase/firestore";
+import { collection, getDocs, orderBy, query, limit } from "firebase/firestore";
 
 // Articleの型を定義しとく
 type Article = {
@@ -16,8 +16,8 @@ type Article = {
 // データを取得する関数
 async function getArticles(): Promise<Article[]> {
   const articlesCollection = collection(db, "articles");
-  // 作成日で降順（新しい順）に並び替えて取得
-  const q = query(articlesCollection, orderBy("created_at", "desc"));
+  // 作成日で降順（新しい順）に並び替えて、最新50件だけ取得
+  const q = query(articlesCollection, orderBy("created_at", "desc"), limit(50));
   const querySnapshot = await getDocs(q);
 
   const articles = querySnapshot.docs.map((doc) => {
