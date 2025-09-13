@@ -86,7 +86,7 @@ export default async function HomePage() {
     <div className="bg-stone-50 min-h-screen text-stone-800">
       <header className="py-4 border-b border-stone-200 bg-white/50 backdrop-blur-sm sticky top-0 z-20">
         <div className="container mx-auto px-6">
-          <h1 className="text-3xl md:text-4xl font-serif text-stone-900">☕ Coffee News</h1>
+          <h1 className="text-3xl md:text-4xl font-serif text-stone-900">☕ Coffee News  - コーヒーでつながる世界 -</h1>
           <p className="text-sm text-stone-500 mt-1">AIがまとめる世界のコーヒーニュース</p>
         </div>
       </header>
