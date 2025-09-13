@@ -62,7 +62,7 @@ def fetch_and_summarize_articles(req: https_fn.Request) -> https_fn.Response:
             "prompt": "以下の海外のニュース記事について、タイトルを日本語に翻訳し、内容を日本語で150字程度に要約してください。結果は必ず以下のJSON形式で返してください:\n{{\n  \"title\": \"ここに翻訳したタイトル\",\n  \"summary\": \"ここに要約した内容\"\n}}\n\n元のタイトル: {title}\n記事の元リンク: {link}"
         },
         {
-            "category": "uk",
+            "category": "gb",
             "name": "イギリス",
             "url": "https://news.google.com/rss/search?q=coffee&hl=en-GB&gl=GB&ceid=GB:en",
             "prompt": "以下の海外のニュース記事について、タイトルを日本語に翻訳し、内容を日本語で150字程度に要約してください。結果は必ず以下のJSON形式で返してください:\n{{\n  \"title\": \"ここに翻訳したタイトル\",\n  \"summary\": \"ここに要約した内容\"\n}}\n\n元のタイトル: {title}\n記事の元リンク: {link}"
