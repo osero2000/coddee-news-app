@@ -49,7 +49,7 @@ export default async function HomePage() {
     australia: "🇦🇺",
     italy: "🇮🇹",
     germany: "🇩🇪",
-    uk: "🇬🇧",
+    gb: "🇬🇧",
     france: "🇫🇷",
   };
 
