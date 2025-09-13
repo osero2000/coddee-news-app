@@ -95,3 +95,6 @@ firestore-debug.log
 .vscode/
 .idea/
 .DS_Store
+
+#memo
+/memo/
