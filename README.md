@@ -39,7 +39,7 @@ memo/          # システム設計メモ
 - `functions/main.py` : ニュース収集・要約・保存
 
 ## 運用・開発・セキュリティのポイント
-- Cloud Scheduler等で定期実行（OCI認証付き）を推奨。外部からのFunctions実行は認証で保護。
+- Cloud Scheduler等で定期実行（OIDC認証付き）を推奨。外部からのFunctions実行は認証で保護。
 - Firestoreのセキュリティルールは「articlesコレクションのみ誰でも読み取りOK、書き込みはFunctionsのみ」。クライアントからの書き込みは完全禁止。
 - APIキー（Gemini/Firebase）はsecretsや.envで厳重管理。`.gitignore`で漏洩防止。
 - ニュースソースはGoogle News RSSのみ。信頼性が高いため、Firestore保存時のバリデーションやXSS対策は最低限でOK。
