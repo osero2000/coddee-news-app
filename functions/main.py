@@ -16,7 +16,7 @@ initialize_app()
 options.set_global_options(secrets=["GEMINI_API_KEY"])
 
 # この関数がURLで呼ばれたら実行される！
-@https_fn.on_request()
+@https_fn.on_request(timeout_sec=540) # タイムアウトを9分に延長！
 def fetch_and_summarize_articles(req: https_fn.Request) -> https_fn.Response:
     """
     Google NewsのRSSからコーヒー関連の記事を取得して、
