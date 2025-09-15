@@ -1,3 +1,4 @@
+"use client";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, orderBy, query, limit, where, QuerySnapshot } from "firebase/firestore";
 
@@ -8,9 +9,10 @@ type Article = {
   summary: string;
   link: string;
   published_at: string;
-  category: string; // カテゴリを柔軟に
-  category_name: string; // 表示用のカテゴリ名
-  created_at: string; // ★取得日時を追加
+  category: string;
+  category_name: string;
+  created_at: string;
+  tags?: string[]; // タグ追加
 };
 
 // FirestoreのデータをArticle型に変換するヘルパー関数
@@ -27,35 +29,67 @@ const processSnapshot = (snapshot: QuerySnapshot): Article[] => {
   });
 };
 
-export default async function HomePage() {
-  const articlesCollection = collection(db, "articles");
 
-  // 日本の記事を最新15件取得
-  const japanQuery = query(
-    articlesCollection,
-    where("category", "==", "japan"),
-    orderBy("created_at", "desc"),
-    limit(15)
-  );
+import { useState, useEffect } from "react";
 
-  // まず日本の記事だけ先に取得する
-  const japanSnapshot = await getDocs(japanQuery);
-  const japanArticles = processSnapshot(japanSnapshot);
+export default function HomePage() {
+  const [japanArticles, setJapanArticles] = useState<Article[]>([]);
+  const [worldArticles, setWorldArticles] = useState<Article[]>([]);
+  const [allTags, setAllTags] = useState<string[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
-  // 次に海外の記事を取得する
-  // in句は内部で複数のクエリに分割され、他のクエリに影響を与える可能性があるため、
-  // 確実に全件取得するために、あえて日本の記事取得と処理を分ける
-  const worldCategories = ["usa", "australia", "italy", "germany", "gb", "france"];
-  const worldQuery = query(
-    articlesCollection,
-    where("category", "in", worldCategories),
-    orderBy("created_at", "desc"),
-    limit(30)
-  );
-  const worldSnapshot = await getDocs(worldQuery);
-  const worldArticles = processSnapshot(worldSnapshot);
+  useEffect(() => {
+    const fetchData = async () => {
+      const articlesCollection = collection(db, "articles");
+      const japanQuery = query(
+        articlesCollection,
+        where("category", "==", "japan"),
+        orderBy("created_at", "desc"),
+        limit(15)
+      );
+      const japanSnapshot = await getDocs(japanQuery);
+      const japan = processSnapshot(japanSnapshot);
 
-  // カテゴリごとの国旗
+      const worldCategories = ["usa", "australia", "italy", "germany", "gb", "france"];
+      const worldQuery = query(
+        articlesCollection,
+        where("category", "in", worldCategories),
+        orderBy("created_at", "desc"),
+        limit(30)
+      );
+      const worldSnapshot = await getDocs(worldQuery);
+      const world = processSnapshot(worldSnapshot);
+
+      setJapanArticles(japan);
+      setWorldArticles(world);
+
+      // 全タグ抽出（日本・海外両方から）
+      const tags = Array.from(new Set([
+        ...japan.flatMap(a => a.tags ?? []),
+        ...world.flatMap(a => a.tags ?? [])
+      ]));
+      setAllTags(tags);
+    };
+    fetchData();
+  }, []);
+
+  // タグ選択/解除
+  const handleTagClick = (tag: string) => {
+    setSelectedTags(prev =>
+      prev.includes(tag)
+        ? prev.filter(t => t !== tag)
+        : [...prev, tag]
+    );
+  };
+
+  // AND検索で絞り込み
+  const filterArticles = (articles: Article[]) => {
+    if (selectedTags.length === 0) return articles;
+    return articles.filter(a =>
+      selectedTags.every(tag => a.tags?.includes(tag))
+    );
+  };
+
   const categoryFlags: { [key: string]: string } = {
     usa: "🇺🇸",
     australia: "🇦🇺",
@@ -65,7 +99,6 @@ export default async function HomePage() {
     france: "🇫🇷",
   };
 
-  // 記事カードのコンポーネント
   const ArticleCard = ({ article }: { article: Article }) => (
     <article key={article.id} className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 border border-stone-200 flex flex-col">
       <div className="flex-grow">
@@ -77,6 +110,12 @@ export default async function HomePage() {
         )}
         <h2 className="text-xl md:text-2xl font-bold text-stone-800 mb-3">{article.title}</h2>
         <p className="text-stone-600 leading-relaxed mb-4">{article.summary}</p>
+        {/* タグ表示 */}
+        <div className="flex flex-wrap gap-2 mt-2">
+          {article.tags?.map(tag => (
+            <span key={tag} className="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-bold">{tag}</span>
+          ))}
+        </div>
       </div>
       <div className="mt-auto pt-4 border-t border-stone-100 flex justify-between items-center">
         <a
@@ -104,16 +143,30 @@ export default async function HomePage() {
       </header>
 
       <main className="container mx-auto px-6 py-8 md:py-12">
+        {/* タグ一覧表示＆複数選択UI */}
+        <div className="mb-8">
+          <h3 className="text-lg font-bold mb-2">タグで絞り込み♡</h3>
+          <div className="flex flex-wrap gap-2">
+            {allTags.map(tag => (
+              <button
+                key={tag}
+                className={`px-3 py-1 rounded-full border font-bold text-xs transition-colors ${selectedTags.includes(tag) ? 'bg-amber-700 text-white border-amber-700' : 'bg-amber-100 text-amber-700 border-amber-200'}`}
+                onClick={() => handleTagClick(tag)}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          
           {/* 日本のニュースセクション */}
           <section>
             <h2 className="text-2xl font-serif font-bold text-stone-800 border-b-2 border-amber-700 pb-2 mb-6">
               日本の新着ニュース
             </h2>
             <div className="grid gap-6 md:gap-8">
-              {japanArticles.length > 0 ? (
-                japanArticles.map((article) => <ArticleCard key={article.id} article={article} />)
+              {filterArticles(japanArticles).length > 0 ? (
+                filterArticles(japanArticles).map((article) => <ArticleCard key={article.id} article={article} />)
               ) : (
                 <p className="text-stone-500">新しいニュースはありません。</p>
               )}
@@ -126,8 +179,8 @@ export default async function HomePage() {
               海外のコーヒーニュース
             </h2>
             <div className="grid gap-6 md:gap-8">
-              {worldArticles.length > 0 ? (
-                worldArticles.map((article) => <ArticleCard key={article.id} article={article} />)
+              {filterArticles(worldArticles).length > 0 ? (
+                filterArticles(worldArticles).map((article) => <ArticleCard key={article.id} article={article} />)
               ) : (
                 <p className="text-stone-500">新しいニュースはありません。</p>
               )}
@@ -136,7 +189,6 @@ export default async function HomePage() {
 
         </div>
       </main>
-      
       <footer className="text-center py-8 mt-8 border-t border-stone-200">
         <p className="text-sm text-stone-400">&copy; {new Date().getFullYear()} Coffee News. All rights reserved.</p>
       </footer>

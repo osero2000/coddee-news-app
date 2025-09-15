@@ -18,9 +18,20 @@ options.set_global_options(secrets=["GEMINI_API_KEY"])
 
 # --- ▼▼▼ 設定はここにまとめるのがおすすめ！ ▼▼▼ ---
 
+# AIに生成させるタグの候補リストだよ。ここを編集すればタグを自由に変えられる！
+ALLOWED_TAGS = [
+    "コーヒー豆", "カフェ", "イベント", "サステナビリティ", "健康", "研究",
+    "ビジネス", "カルチャー", "レシピ", "スペシャルティコーヒー", "産地",
+    "ハンドドリップ", "エスプレッソ", "コールドブリュー", "トレンド", "歴史"
+]
+# プロンプトで使いやすいように、タグリストを文字列に変換しとく
+ALLOWED_TAGS_TEXT = ", ".join(ALLOWED_TAGS)
+
 # Geminiに渡すプロンプトのテンプレートだよ
-JAPAN_PROMPT = "以下のニュース記事を、日本のコーヒー好きの読者向けに、150字程度で親しみやすく要約してください。結果は必ず以下のJSON形式で返してください:\n{{\n  \"title\": \"{title}\",\n  \"summary\": \"ここに要約した内容\"\n}}\n\nタイトル: {title}\n記事の元リンク: {link}"
-OVERSEAS_PROMPT = "以下の海外のニュース記事について、タイトルを日本語に翻訳し、内容を日本語で150字程度に要約してください。結果は必ず以下のJSON形式で返してください:\n{{\n  \"title\": \"ここに翻訳したタイトル\",\n  \"summary\": \"ここに要約した内容\"\n}}\n\n元のタイトル: {title}\n記事の元リンク: {link}"
+_COMMON_PROMPT_PART = f"さらに、記事の内容に最も関連性の高いタグを、下記のリストの中から最大3つまで選び、配列形式で生成してください。リストに適切なタグがない場合は、無理に選ばず空の配列 `[]` としてください。\n\nタグのリスト: [{ALLOWED_TAGS_TEXT}]\n\n"
+
+JAPAN_PROMPT = "以下のニュース記事を、日本のコーヒー好きの読者向けに、150字程度で親しみやすく要約してください。" + _COMMON_PROMPT_PART + "結果は必ず以下のJSON形式で返してください:\n{{\n  \"title\": \"{title}\",\n  \"summary\": \"ここに要約した内容\",\n  \"tags\": [\"選んだタグ1\", \"選んだタグ2\"]\n}}\n\nタイトル: {title}\n記事の元リンク: {link}"
+OVERSEAS_PROMPT = "以下の海外のニュース記事について、タイトルを日本語に翻訳し、内容を日本語で150字程度に要約してください。" + _COMMON_PROMPT_PART + "結果は必ず以下のJSON形式で返してください:\n{{\n  \"title\": \"ここに翻訳したタイトル\",\n  \"summary\": \"ここに要約した内容\",\n  \"tags\": [\"選んだタグ1\", \"選んだタグ2\"]\n}}\n\n元のタイトル: {title}\n記事の元リンク: {link}"
 
 # 収集するRSSフィードのリスト
 FEEDS = [
@@ -125,19 +136,22 @@ def fetch_and_summarize_articles(req: https_fn.Request) -> https_fn.Response:
                     result = json.loads(cleaned_response)
                     processed_title = result.get("title", title)
                     summary = result.get("summary", "要約の取得に失敗しました。")
+                    tags = result.get("tags", []) # Geminiが生成したタグを取得するよ
                 except (json.JSONDecodeError, AttributeError) as e:
                     print(f"  JSONのパースに失敗: {e}. レスポンス: {summary_response.text}")
                     processed_title = f"{title} (処理失敗)"
                     summary = "記事の処理に失敗しました。元の記事をご確認ください。"
+                    tags = []
 
                 # データベースに保存するデータを作成
                 article_data = {
-                    'title': processed_title, # ★処理済みのタイトルに更新
+                    'title': processed_title,
                     'link': link,
                     'summary': summary,
+                    'tags': tags, # 生成したタグを保存
                     'published_at': pub_date,
-                    'category': feed['category'], # ★カテゴリを追加！
-                    'category_name': feed['name'], # ★カテゴリ名も追加！
+                    'category': feed['category'],
+                    'category_name': feed['name'],
                     'created_at': firestore.SERVER_TIMESTAMP
                 }
                 # Firestoreに保存するために、記事のリンクをIDにする（重複防止！）
