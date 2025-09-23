@@ -5,88 +5,21 @@ import requests
 import xml.etree.ElementTree as ET
 import hashlib
 import time
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 import json
 import google.generativeai as genai
 from firebase_admin import firestore, initialize_app
 from firebase_functions import https_fn, options
+
+# 設定ファイルをインポートするよ
+import config
 
 # FirebaseとGeminiを初期化するよ
 initialize_app()
 
 # ★超大事★ GeminiのAPIキーを安全な場所から読み込む設定
 options.set_global_options(secrets=["GEMINI_API_KEY"])
-
-# --- ▼▼▼ 設定はここにまとめるのがおすすめ！ ▼▼▼ ---
-
-# AIに生成させるタグの候補リストだよ。ここを編集すればタグを自由に変えられる！
-ALLOWED_TAGS = [
-    "コーヒー豆", "カフェ", "イベント", "サステナビリティ", "健康", "研究",
-    "ビジネス", "カルチャー", "レシピ", "スペシャルティコーヒー", "産地",
-    "ハンドドリップ", "エスプレッソ", "コールドブリュー", "トレンド", "歴史"
-]
-# プロンプトで使いやすいように、タグリストを文字列に変換しとく
-ALLOWED_TAGS_TEXT = ", ".join(ALLOWED_TAGS)
-
-# Geminiに渡すプロンプトのテンプレートだよ
-_COMMON_PROMPT_PART = f"さらに、記事の内容に最も関連性の高いタグを、下記のリストの中から最大3つまで選び、配列形式で生成してください。リストに適切なタグがない場合は、無理に選ばず空の配列 `[]` としてください。\n\nタグのリスト: [{ALLOWED_TAGS_TEXT}]\n\n"
-
-JAPAN_PROMPT = "以下のニュース記事を、日本のコーヒー好きの読者向けに、150字程度で親しみやすく要約してください。" + _COMMON_PROMPT_PART + "結果は必ず以下のJSON形式で返してください:\n{{\n  \"title\": \"{title}\",\n  \"summary\": \"ここに要約した内容\",\n  \"tags\": [\"選んだタグ1\", \"選んだタグ2\"]\n}}\n\nタイトル: {title}\n記事の元リンク: {link}"
-OVERSEAS_PROMPT = "以下の海外のニュース記事について、タイトルを日本語に翻訳し、内容を日本語で150字程度に要約してください。" + _COMMON_PROMPT_PART + "結果は必ず以下のJSON形式で返してください:\n{{\n  \"title\": \"ここに翻訳したタイトル\",\n  \"summary\": \"ここに要約した内容\",\n  \"tags\": [\"選んだタグ1\", \"選んだタグ2\"]\n}}\n\n元のタイトル: {title}\n記事の元リンク: {link}"
-
-# 収集するRSSフィードのリスト
-FEEDS = [
-    {
-        "category": "japan",
-        "name": "日本",
-        "url": "https://news.google.com/rss/search?q=coffee&hl=ja&gl=JP&ceid=JP:ja",
-        "prompt": JAPAN_PROMPT,
-        "articles_to_fetch": 15
-    },
-    {
-        "category": "usa",
-        "name": "アメリカ",
-        "url": "https://news.google.com/rss/search?q=coffee&hl=en-US&gl=US&ceid=US:en",
-        "prompt": OVERSEAS_PROMPT,
-        "articles_to_fetch": 5
-    },
-    {
-        "category": "australia",
-        "name": "オーストラリア",
-        "url": "https://news.google.com/rss/search?q=coffee&hl=en-AU&gl=AU&ceid=AU:en",
-        "prompt": OVERSEAS_PROMPT,
-        "articles_to_fetch": 5
-    },
-    {
-        "category": "italy",
-        "name": "イタリア",
-        "url": "https://news.google.com/rss/search?q=coffee&hl=it&gl=IT&ceid=IT:it",
-        "prompt": OVERSEAS_PROMPT,
-        "articles_to_fetch": 5
-    },
-    {
-        "category": "germany",
-        "name": "ドイツ",
-        "url": "https://news.google.com/rss/search?q=coffee&hl=de&gl=DE&ceid=DE:de",
-        "prompt": OVERSEAS_PROMPT,
-        "articles_to_fetch": 5
-    },
-    {
-        "category": "gb",
-        "name": "イギリス",
-        "url": "https://news.google.com/rss/search?q=coffee&hl=en-GB&gl=GB&ceid=GB:en",
-        "prompt": OVERSEAS_PROMPT,
-        "articles_to_fetch": 5
-    },
-    {
-        "category": "france",
-        "name": "フランス",
-        "url": "https://news.google.com/rss/search?q=coffee&hl=fr&gl=FR&ceid=FR:fr",
-        "prompt": OVERSEAS_PROMPT,
-        "articles_to_fetch": 5
-    }
-]
-
-# --- ▲▲▲ 設定はここまで ▲▲▲ ---
 
 # この関数がURLで呼ばれたら実行される！
 @https_fn.on_request(timeout_sec=540) # タイムアウトを9分に延長！
@@ -107,8 +40,8 @@ def fetch_and_summarize_articles(req: https_fn.Request) -> https_fn.Response:
         }
 
         # 各フィードをループして処理
-        for feed in FEEDS:
-            print(f"カテゴリ '{feed['name']}' の記事を収集中...")
+        for feed in config.FEEDS:
+            print(f"カテゴリ '{feed['country_name']}' の記事を収集中...")
             response = requests.get(feed['url'], headers=headers)
             response.raise_for_status()
             
@@ -121,7 +54,13 @@ def fetch_and_summarize_articles(req: https_fn.Request) -> https_fn.Response:
             for item in root.findall('.//item')[:num_articles_to_fetch]:
                 title = item.find('title').text
                 link = item.find('link').text
-                pub_date = item.find('pubDate').text
+                pub_date_str = item.find('pubDate').text
+
+                # RSSの公開日時をパースしてdatetimeオブジェクトに変換するよ
+                try:
+                    pub_date = parsedate_to_datetime(pub_date_str)
+                except (TypeError, ValueError):
+                    pub_date = datetime.now(timezone.utc) # パース失敗したら今の時間
 
                 print(f"  処理中の記事: {title}")
 
@@ -150,8 +89,10 @@ def fetch_and_summarize_articles(req: https_fn.Request) -> https_fn.Response:
                     'summary': summary,
                     'tags': tags, # 生成したタグを保存
                     'published_at': pub_date,
-                    'category': feed['category'],
-                    'category_name': feed['name'],
+                    'region': feed['region'],
+                    'region_name': config.REGIONS[feed['region']],
+                    'country_code': feed['country_code'],
+                    'country_name': feed['country_name'],
                     'created_at': firestore.SERVER_TIMESTAMP
                 }
                 # Firestoreに保存するために、記事のリンクをIDにする（重複防止！）
