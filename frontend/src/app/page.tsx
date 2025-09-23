@@ -39,13 +39,14 @@ const processSnapshot = (snapshot: QuerySnapshot): Article[] => {
 };
 
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 export default function HomePage() {
   const [japanArticles, setJapanArticles] = useState<Article[]>([]);
   const [allOverseasArticles, setAllOverseasArticles] = useState<Article[]>([]);
   const [allTags, setAllTags] = useState<string[]>([]);
   const [selectedRegion, setSelectedRegion] = useState('eu_us'); // デフォルトは欧米
+  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   useEffect(() => {
@@ -92,6 +93,15 @@ export default function HomePage() {
     );
   };
 
+  // 国選択/解除
+  const handleCountryClick = (countryCode: string) => {
+    setSelectedCountries(prev =>
+      prev.includes(countryCode)
+        ? prev.filter(c => c !== countryCode)
+        : [...prev, countryCode]
+    );
+  };
+
   // AND検索で絞り込み
   const filterArticles = (articles: Article[]) => {
     if (selectedTags.length === 0) return articles;
@@ -100,9 +110,26 @@ export default function HomePage() {
     );
   };
 
+  // 選択中のリージョンに含まれる国を抽出
+  const countriesInSelectedRegion = useMemo(() => {
+    const articlesInRegion = allOverseasArticles.filter(a => a.region === selectedRegion);
+    const countries = articlesInRegion.map(a => ({
+      code: a.country_code,
+      name: a.country_name,
+    }));
+    // 重複を削除し、国名でソート
+    const uniqueCountries = Array.from(new Map(countries.map(c => [c.code, c])).values())
+      .filter(c => c.code && c.name) // codeやnameがないものは除外
+      .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+    return uniqueCountries;
+  }, [allOverseasArticles, selectedRegion]);
+
   const filteredJapanArticles = filterArticles(japanArticles);
   const filteredOverseasArticles = filterArticles(
-    allOverseasArticles.filter(a => a.region === selectedRegion)
+    allOverseasArticles
+      .filter(a => a.region === selectedRegion)
+      // 国が選択されている場合は、その国の記事に絞り込む
+      .filter(a => selectedCountries.length === 0 || selectedCountries.includes(a.country_code))
   );
 
   const countryFlags: { [key: string]: string } = {
@@ -208,13 +235,38 @@ export default function HomePage() {
               ].map(region => (
                 <button
                   key={region.key}
-                  onClick={() => setSelectedRegion(region.key)}
-                  className={`px-4 py-2 rounded-full font-bold text-sm transition-all ${selectedRegion === region.key ? 'bg-amber-700 text-white shadow-md' : 'bg-white text-stone-600 hover:bg-stone-100'}`}
+                  onClick={() => {
+                    setSelectedRegion(region.key);
+                    setSelectedCountries([]); // リージョンを切り替えたら国の選択はリセット
+                  }}
+                  className={`px-4 py-2 rounded-full font-bold text-sm transition-all ${selectedRegion === region.key ? 'bg-amber-700 text-white shadow-md' : 'bg-white text-stone-600 hover:bg-stone-100 border'}`}
                 >
                   {region.name}
                 </button>
               ))}
             </div>
+
+            {/* 国絞り込みUI */}
+            {countriesInSelectedRegion.length > 1 && (
+              <div className="mb-6">
+                <div className="flex flex-wrap gap-2">
+                  {countriesInSelectedRegion.map(country => (
+                    <button
+                      key={country.code}
+                      onClick={() => handleCountryClick(country.code)}
+                      className={`px-3 py-1 rounded-full border text-xs font-bold transition-colors flex items-center gap-1.5 ${
+                        selectedCountries.includes(country.code)
+                          ? 'bg-sky-600 text-white border-sky-600'
+                          : 'bg-white text-sky-700 border-sky-200 hover:bg-sky-50'
+                      }`}
+                    >
+                      <span>{countryFlags[country.code] ?? '🌐'}</span>
+                      <span>{country.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="grid gap-6 md:gap-8">
               {filteredOverseasArticles.length > 0 ? (
