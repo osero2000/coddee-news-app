@@ -9,8 +9,10 @@ type Article = {
   summary: string;
   link: string;
   published_at: string;
-  category: string;
-  category_name: string;
+  region: string;
+  region_name: string;
+  country_code: string;
+  country_name: string;
   created_at: string;
   tags?: string[]; // タグ追加
 };
@@ -22,6 +24,13 @@ const processSnapshot = (snapshot: QuerySnapshot): Article[] => {
     return {
       id: doc.id,
       ...data,
+      // `published_at`は古いデータが文字列、新しいデータがTimestampになってるから、両方に対応させるよ
+      published_at: data.published_at
+        ? (typeof data.published_at.toDate === 'function'
+          ? data.published_at.toDate() // TimestampならDateオブジェクトに
+          : new Date(data.published_at) // 文字列ならDateオブジェクトに
+        ).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })
+        : '公開日時不明',
       created_at: data.created_at
         ? data.created_at.toDate().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })
         : '取得日時不明',
@@ -34,8 +43,9 @@ import { useState, useEffect } from "react";
 
 export default function HomePage() {
   const [japanArticles, setJapanArticles] = useState<Article[]>([]);
-  const [worldArticles, setWorldArticles] = useState<Article[]>([]);
+  const [allOverseasArticles, setAllOverseasArticles] = useState<Article[]>([]);
   const [allTags, setAllTags] = useState<string[]>([]);
+  const [selectedRegion, setSelectedRegion] = useState('eu_us'); // デフォルトは欧米
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   useEffect(() => {
@@ -43,30 +53,30 @@ export default function HomePage() {
       const articlesCollection = collection(db, "articles");
       const japanQuery = query(
         articlesCollection,
-        where("category", "==", "japan"),
-        orderBy("created_at", "desc"),
+        where("region", "==", "japan"),
+        orderBy("published_at", "desc"),
         limit(15)
       );
       const japanSnapshot = await getDocs(japanQuery);
       const japan = processSnapshot(japanSnapshot);
 
-      const worldCategories = ["usa", "australia", "italy", "germany", "gb", "france"];
-      const worldQuery = query(
+      const overseasRegions = ["asia", "eu_us", "latin_america", "africa"];
+      const overseasQuery = query(
         articlesCollection,
-        where("category", "in", worldCategories),
-        orderBy("created_at", "desc"),
-        limit(30)
+        where("region", "in", overseasRegions),
+        orderBy("published_at", "desc"),
+        limit(100) // 海外記事は多めに取得
       );
-      const worldSnapshot = await getDocs(worldQuery);
-      const world = processSnapshot(worldSnapshot);
+      const overseasSnapshot = await getDocs(overseasQuery);
+      const overseas = processSnapshot(overseasSnapshot);
 
       setJapanArticles(japan);
-      setWorldArticles(world);
+      setAllOverseasArticles(overseas);
 
       // 全タグ抽出（日本・海外両方から）
       const tags = Array.from(new Set([
         ...japan.flatMap(a => a.tags ?? []),
-        ...world.flatMap(a => a.tags ?? [])
+        ...overseas.flatMap(a => a.tags ?? [])
       ]));
       setAllTags(tags);
     };
@@ -90,22 +100,32 @@ export default function HomePage() {
     );
   };
 
-  const categoryFlags: { [key: string]: string } = {
+  const filteredJapanArticles = filterArticles(japanArticles);
+  const filteredOverseasArticles = filterArticles(
+    allOverseasArticles.filter(a => a.region === selectedRegion)
+  );
+
+  const countryFlags: { [key: string]: string } = {
     usa: "🇺🇸",
     australia: "🇦🇺",
     italy: "🇮🇹",
     germany: "🇩🇪",
     gb: "🇬🇧",
     france: "🇫🇷",
+    es: "🇪🇸",
+    pt: "🇵🇹",
+    cn: "🇨🇳", tw: "🇹🇼", kr: "🇰🇷", vn: "🇻🇳", sg: "🇸🇬",
+    br: "🇧🇷", co: "🇨🇴", cr: "🇨🇷", pa: "🇵🇦", sv: "🇸🇻", gt: "🇬🇹", mx: "🇲🇽", pe: "🇵🇪",
+    et: "🇪🇹", ke: "🇰🇪", ug: "🇺🇬", rw: "🇷🇼",
   };
 
   const ArticleCard = ({ article }: { article: Article }) => (
     <article key={article.id} className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 border border-stone-200 flex flex-col">
       <div className="flex-grow">
-        {article.category !== 'japan' && (
+        {article.region !== 'japan' && (
           <div className="text-sm font-bold text-stone-500 mb-2 flex items-center gap-2">
-            <span>{categoryFlags[article.category] ?? '🌐'}</span>
-            <span>{article.category_name}</span>
+            <span>{countryFlags[article.country_code] ?? '🌐'}</span>
+            <span>{article.country_name}</span>
           </div>
         )}
         <h2 className="text-xl md:text-2xl font-bold text-stone-800 mb-3">{article.title}</h2>
@@ -126,8 +146,8 @@ export default function HomePage() {
         >
           元記事を読む &rarr;
         </a>
-        <time dateTime={article.created_at} className="text-xs text-stone-400">
-          {article.created_at} 取得
+        <time dateTime={article.published_at} className="text-xs text-stone-400">
+          {article.published_at}
         </time>
       </div>
     </article>
@@ -165,8 +185,8 @@ export default function HomePage() {
               日本の新着ニュース
             </h2>
             <div className="grid gap-6 md:gap-8">
-              {filterArticles(japanArticles).length > 0 ? (
-                filterArticles(japanArticles).map((article) => <ArticleCard key={article.id} article={article} />)
+              {filteredJapanArticles.length > 0 ? (
+                filteredJapanArticles.map((article) => <ArticleCard key={article.id} article={article} />)
               ) : (
                 <p className="text-stone-500">新しいニュースはありません。</p>
               )}
@@ -178,9 +198,27 @@ export default function HomePage() {
             <h2 className="text-2xl font-serif font-bold text-stone-800 border-b-2 border-amber-700 pb-2 mb-6">
               海外のコーヒーニュース
             </h2>
+            {/* リージョン切り替えタブ */}
+            <div className="flex flex-wrap gap-2 mb-6 border-b border-stone-200 pb-4">
+              {[
+                { key: 'eu_us', name: '欧米' },
+                { key: 'asia', name: 'アジア' },
+                { key: 'latin_america', name: '中南米' },
+                { key: 'africa', name: 'アフリカ' },
+              ].map(region => (
+                <button
+                  key={region.key}
+                  onClick={() => setSelectedRegion(region.key)}
+                  className={`px-4 py-2 rounded-full font-bold text-sm transition-all ${selectedRegion === region.key ? 'bg-amber-700 text-white shadow-md' : 'bg-white text-stone-600 hover:bg-stone-100'}`}
+                >
+                  {region.name}
+                </button>
+              ))}
+            </div>
+
             <div className="grid gap-6 md:gap-8">
-              {filterArticles(worldArticles).length > 0 ? (
-                filterArticles(worldArticles).map((article) => <ArticleCard key={article.id} article={article} />)
+              {filteredOverseasArticles.length > 0 ? (
+                filteredOverseasArticles.map((article) => <ArticleCard key={article.id} article={article} />)
               ) : (
                 <p className="text-stone-500">新しいニュースはありません。</p>
               )}
