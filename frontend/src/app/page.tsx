@@ -41,6 +41,10 @@ const processSnapshot = (snapshot: QuerySnapshot): Article[] => {
 
 import { useState, useEffect, useMemo } from "react";
 
+// 記事の最大取得件数を定数として定義
+const MAX_JAPAN_ARTICLES_COUNT = 15;
+const MAX_OVERSEAS_ARTICLES_COUNT = 100;
+
 export default function HomePage() {
   const [japanArticles, setJapanArticles] = useState<Article[]>([]);
   const [allOverseasArticles, setAllOverseasArticles] = useState<Article[]>([]);
@@ -52,24 +56,29 @@ export default function HomePage() {
   useEffect(() => {
     const fetchData = async () => {
       const articlesCollection = collection(db, "articles");
+      // 日本記事
       const japanQuery = query(
         articlesCollection,
         where("region", "==", "japan"),
         orderBy("published_at", "desc"),
-        limit(15)
+        limit(MAX_JAPAN_ARTICLES_COUNT)
       );
       const japanSnapshot = await getDocs(japanQuery);
       const japan = processSnapshot(japanSnapshot);
 
+      // 海外記事（各リージョンごとに最大100件ずつ取得）
       const overseasRegions = ["asia", "eu_us", "latin_america", "africa"];
-      const overseasQuery = query(
-        articlesCollection,
-        where("region", "in", overseasRegions),
-        orderBy("published_at", "desc"),
-        limit(100) // 海外記事は多めに取得
-      );
-      const overseasSnapshot = await getDocs(overseasQuery);
-      const overseas = processSnapshot(overseasSnapshot);
+      let overseas: Article[] = [];
+      for (const region of overseasRegions) {
+        const regionQuery = query(
+          articlesCollection,
+          where("region", "==", region),
+          orderBy("published_at", "desc"),
+          limit(MAX_OVERSEAS_ARTICLES_COUNT)
+        );
+        const regionSnapshot = await getDocs(regionQuery);
+        overseas = overseas.concat(processSnapshot(regionSnapshot));
+      }
 
       setJapanArticles(japan);
       setAllOverseasArticles(overseas);
