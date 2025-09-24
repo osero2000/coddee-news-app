@@ -4,16 +4,17 @@ import { useState, useMemo } from "react";
 import type { Article } from "@/lib/articles";
 
 const countryFlags: { [key: string]: string } = {
-  usa: "🇺🇸",
-  australia: "🇦🇺",
-  italy: "🇮🇹",
-  germany: "🇩🇪",
+  jp: "🇯🇵",
+  us: "🇺🇸",
+  au: "🇦🇺",
+  it: "🇮🇹",
+  de: "🇩🇪",
   gb: "🇬🇧",
-  france: "🇫🇷",
+  fr: "🇫🇷",
   es: "🇪🇸",
   pt: "🇵🇹",
   cn: "🇨🇳", tw: "🇹🇼", kr: "🇰🇷", vn: "🇻🇳", sg: "🇸🇬",
-  brazil: "🇧🇷", colombia: "🇨🇴", cr: "🇨🇷", pa: "🇵🇦", sv: "🇸🇻", gt: "🇬🇹", mx: "🇲🇽", pe: "🇵🇪",
+  br: "🇧🇷", co: "🇨🇴", cr: "🇨🇷", pa: "🇵🇦", sv: "🇸🇻", gt: "🇬🇹", mx: "🇲🇽", pe: "🇵🇪",
   et: "🇪🇹", ke: "🇰🇪", ug: "🇺🇬", rw: "🇷🇼",
 };
 
@@ -53,20 +54,30 @@ const ArticleCard = ({ article }: { article: Article }) => (
 type ArticleBrowserProps = {
   japanArticles: Article[];
   allOverseasArticles: Article[];
+  debugCounts: {
+    japan: number;
+    overseas: number;
+  }
 };
 
-export default function ArticleBrowser({ japanArticles, allOverseasArticles }: ArticleBrowserProps) {
-  const [selectedRegion, setSelectedRegion] = useState('eu_us');
+const isDebugMode = process.env.NEXT_PUBLIC_DEBUG_MODE === 'true';
+
+export default function ArticleBrowser({ japanArticles, allOverseasArticles, debugCounts }: ArticleBrowserProps) {
+  const [selectedRegion, setSelectedRegion] = useState('us');
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
+  // country_codeが2文字のISOコードである記事のみをフィルタリング
+  const validJapanArticles = useMemo(() => japanArticles.filter(a => a.country_code.length === 2), [japanArticles]);
+  const validOverseasArticles = useMemo(() => allOverseasArticles.filter(a => a.country_code.length === 2), [allOverseasArticles]);
+
   const allTags = useMemo(() => {
     const tags = Array.from(new Set([
-      ...japanArticles.flatMap(a => a.tags ?? []),
-      ...allOverseasArticles.flatMap(a => a.tags ?? [])
+      ...validJapanArticles.flatMap(a => a.tags ?? []),
+      ...validOverseasArticles.flatMap(a => a.tags ?? [])
     ]));
     return tags;
-  }, [japanArticles, allOverseasArticles]);
+  }, [validJapanArticles, validOverseasArticles]);
 
   const handleTagClick = (tag: string) => {
     setSelectedTags(prev =>
@@ -92,26 +103,39 @@ export default function ArticleBrowser({ japanArticles, allOverseasArticles }: A
   };
 
   const countriesInSelectedRegion = useMemo(() => {
-    const articlesInRegion = allOverseasArticles.filter(a => a.region === selectedRegion);
+    const articlesInRegion = validOverseasArticles.filter(a => a.region === selectedRegion);
     const countries = articlesInRegion.map(a => ({
       code: a.country_code,
       name: a.country_name,
     }));
     const uniqueCountries = Array.from(new Map(countries.map(c => [c.code, c])).values())
-      .filter(c => c.code && c.name)
       .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
     return uniqueCountries;
-  }, [allOverseasArticles, selectedRegion]);
+  }, [validOverseasArticles, selectedRegion]);
 
-  const filteredJapanArticles = filterArticles(japanArticles);
+  const filteredJapanArticles = filterArticles(validJapanArticles);
   const filteredOverseasArticles = filterArticles(
-    allOverseasArticles
+    validOverseasArticles
       .filter(a => a.region === selectedRegion)
       .filter(a => selectedCountries.length === 0 || selectedCountries.includes(a.country_code))
   );
 
   return (
     <>
+      {isDebugMode && ( /* --- デバッグ表示ここから --- */
+      <div className="fixed bottom-4 right-4 bg-black/80 text-white p-4 rounded-lg shadow-lg z-50 text-xs">
+        <h4 className="font-bold mb-2 border-b border-gray-600 pb-1">デバッグ情報</h4>
+        <p>Firestore取得件数 (Japan): {debugCounts.japan}</p>
+        <p>Firestore取得件数 (Overseas): {debugCounts.overseas}</p>
+        <hr className="my-1 border-gray-600" />
+        <p>有効な記事数 (Japan): {validJapanArticles.length}</p>
+        <p>有効な記事数 (Overseas): {validOverseasArticles.length}</p>
+        <hr className="my-1 border-gray-600" />
+        <p>表示件数 (Japan): {filteredJapanArticles.length}</p>
+        <p>表示件数 (Overseas): {filteredOverseasArticles.length}</p>
+      </div>
+      )} {/* --- デバッグ表示ここまで --- */}
+
       <div className="mb-8">
         <h3 className="text-lg font-bold mb-2">タグで絞り込み♡</h3>
         <div className="flex flex-wrap gap-2">
@@ -146,7 +170,8 @@ export default function ArticleBrowser({ japanArticles, allOverseasArticles }: A
           </h2>
           <div className="flex flex-wrap gap-2 mb-6 border-b border-stone-200 pb-4">
             {[
-              { key: 'eu_us', name: '欧米' },
+              { key: 'us', name: 'アメリカ' },
+              { key: 'europe', name: 'ヨーロッパ' },
               { key: 'asia', name: 'アジア' },
               { key: 'latin_america', name: '中南米' },
               { key: 'africa', name: 'アフリカ' },

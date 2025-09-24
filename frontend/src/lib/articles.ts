@@ -45,21 +45,32 @@ const processSnapshot = (snapshot: QuerySnapshot): Article[] => {
 };
 
 const MAX_JAPAN_ARTICLES_COUNT = 15;
-const MAX_OVERSEAS_ARTICLES_COUNT = 100;
+const MAX_US_ARTICLES_COUNT = 15;
+const MAX_OTHER_REGIONS_ARTICLES_COUNT = 50;
 
 export const getArticles = async () => {
   const articlesCollection = collection(db, "articles");
 
   // Promise.allを使用して、日本と海外のニュース取得を並列実行し高速化
   const [japanSnapshot, ...overseasSnapshots] = await Promise.all([
+    // 日本の記事を15件取得
     getDocs(query(articlesCollection, where("region", "==", "japan"), orderBy("published_at", "desc"), limit(MAX_JAPAN_ARTICLES_COUNT))),
-    ...["asia", "eu_us", "latin_america", "africa"].map(region =>
-      getDocs(query(articlesCollection, where("region", "==", region), orderBy("published_at", "desc"), limit(MAX_OVERSEAS_ARTICLES_COUNT)))
-    )
+    // アメリカの記事を15件取得
+    getDocs(query(articlesCollection, where("region", "==", "us"), orderBy("published_at", "desc"), limit(MAX_US_ARTICLES_COUNT))),
+    // その他の海外リージョンの記事をそれぞれ50件ずつ取得
+    ...["europe", "asia", "latin_america", "africa"].map(region =>
+      getDocs(query(articlesCollection, where("region", "==", region), orderBy("published_at", "desc"), limit(MAX_OTHER_REGIONS_ARTICLES_COUNT)))
+    ),
   ]);
 
   const japanArticles = processSnapshot(japanSnapshot);
   const overseasArticles = overseasSnapshots.flatMap(snap => processSnapshot(snap));
 
-  return { japanArticles, overseasArticles };
+  // デバッグ用に各スナップショットの件数を返す
+  const debugCounts = {
+    japan: japanSnapshot.size,
+    overseas: overseasSnapshots.reduce((acc, snap) => acc + snap.size, 0),
+  };
+
+  return { japanArticles, overseasArticles, debugCounts };
 };

@@ -20,8 +20,9 @@ OVERSEAS_PROMPT = "以下の海外のニュース記事について、タイト�
 # --- リージョン（地域）の定義 ---
 REGIONS = {
     "japan": "日本",
+    "us": "アメリカ",
+    "europe": "ヨーロッパ",
     "asia": "アジア",
-    "eu_us": "欧米",
     "latin_america": "中南米",
     "africa": "アフリカ"
 }
@@ -31,11 +32,77 @@ FEEDS = [
     # --- 日本 ---
     {
         "region": "japan",
-        "country_code": "japan",
+        "country_code": "jp",
         "country_name": "日本",
         "url": "https://news.google.com/rss/search?q=coffee&hl=ja&gl=JP&ceid=JP:ja",
         "prompt": JAPAN_PROMPT,
         "articles_to_fetch": 15
+    },
+    # --- アメリカ ---
+    {
+        "region": "us",
+        "country_code": "us",
+        "country_name": "アメリカ合衆国",
+        "url": "https://news.google.com/rss/search?q=coffee&hl=en-US&gl=US&ceid=US:en-US",
+        "prompt": OVERSEAS_PROMPT,
+        "articles_to_fetch": 15
+    },
+    # --- ヨーロッパ ---
+    {
+        "region": "europe",
+        "country_code": "au",
+        "country_name": "オーストラリア",
+        "url": "https://news.google.com/rss/search?q=coffee&hl=en-AU&gl=AU&ceid=AU:en-AU",
+        "prompt": OVERSEAS_PROMPT,
+        "articles_to_fetch": 5
+    },
+    {
+        "region": "europe",
+        "country_code": "it",
+        "country_name": "イタリア",
+        "url": "https://news.google.com/rss/search?q=caffè&hl=it&gl=IT&ceid=IT:it",
+        "prompt": OVERSEAS_PROMPT,
+        "articles_to_fetch": 5
+    },
+    {
+        "region": "europe",
+        "country_code": "de",
+        "country_name": "ドイツ",
+        "url": "https://news.google.com/rss/search?q=kaffee&hl=de&gl=DE&ceid=DE:de",
+        "prompt": OVERSEAS_PROMPT,
+        "articles_to_fetch": 5
+    },
+    {
+        "region": "europe",
+        "country_code": "gb",
+        "country_name": "イギリス",
+        "url": "https://news.google.com/rss/search?q=coffee&hl=en-GB&gl=GB&ceid=GB:en-GB",
+        "prompt": OVERSEAS_PROMPT,
+        "articles_to_fetch": 5
+    },
+    {
+        "region": "europe",
+        "country_code": "fr",
+        "country_name": "フランス",
+        "url": "https://news.google.com/rss/search?q=café&hl=fr&gl=FR&ceid=FR:fr",
+        "prompt": OVERSEAS_PROMPT,
+        "articles_to_fetch": 5
+    },
+    {
+        "region": "europe",
+        "country_code": "es",
+        "country_name": "スペイン",
+        "url": "https://news.google.com/rss/search?q=café&hl=es&gl=ES&ceid=ES:es",
+        "prompt": OVERSEAS_PROMPT,
+        "articles_to_fetch": 5
+    },
+    {
+        "region": "europe",
+        "country_code": "pt",
+        "country_name": "ポルトガル",
+        "url": "https://news.google.com/rss/search?q=café&hl=pt-PT&gl=PT&ceid=PT:pt-PT",
+        "prompt": OVERSEAS_PROMPT,
+        "articles_to_fetch": 5
     },
     # --- アジア ---
     {
@@ -78,83 +145,18 @@ FEEDS = [
         "prompt": OVERSEAS_PROMPT,
         "articles_to_fetch": 5
     },
-    # --- 欧米 ---
-    {
-        "region": "eu_us",
-        "country_code": "usa",
-        "country_name": "アメリカ",
-        "url": "https://news.google.com/rss/search?q=coffee&hl=en-US&gl=US&ceid=US:en",
-        "prompt": OVERSEAS_PROMPT,
-        "articles_to_fetch": 5
-    },
-    {
-        "region": "eu_us",
-        "country_code": "australia",
-        "country_name": "オーストラリア",
-        "url": "https://news.google.com/rss/search?q=coffee&hl=en-AU&gl=AU&ceid=AU:en",
-        "prompt": OVERSEAS_PROMPT,
-        "articles_to_fetch": 5
-    },
-    {
-        "region": "eu_us",
-        "country_code": "italy",
-        "country_name": "イタリア",
-        "url": "https://news.google.com/rss/search?q=caffè&hl=it&gl=IT&ceid=IT:it",
-        "prompt": OVERSEAS_PROMPT,
-        "articles_to_fetch": 5
-    },
-    {
-        "region": "eu_us",
-        "country_code": "germany",
-        "country_name": "ドイツ",
-        "url": "https://news.google.com/rss/search?q=kaffee&hl=de&gl=DE&ceid=DE:de",
-        "prompt": OVERSEAS_PROMPT,
-        "articles_to_fetch": 5
-    },
-    {
-        "region": "eu_us",
-        "country_code": "gb",
-        "country_name": "イギリス",
-        "url": "https://news.google.com/rss/search?q=coffee&hl=en-GB&gl=GB&ceid=GB:en",
-        "prompt": OVERSEAS_PROMPT,
-        "articles_to_fetch": 5
-    },
-    {
-        "region": "eu_us",
-        "country_code": "france",
-        "country_name": "フランス",
-        "url": "https://news.google.com/rss/search?q=café&hl=fr&gl=FR&ceid=FR:fr",
-        "prompt": OVERSEAS_PROMPT,
-        "articles_to_fetch": 5
-    },
-    {
-        "region": "eu_us",
-        "country_code": "es",
-        "country_name": "スペイン",
-        "url": "https://news.google.com/rss/search?q=café&hl=es&gl=ES&ceid=ES:es",
-        "prompt": OVERSEAS_PROMPT,
-        "articles_to_fetch": 5
-    },
-    {
-        "region": "eu_us",
-        "country_code": "pt",
-        "country_name": "ポルトガル",
-        "url": "https://news.google.com/rss/search?q=café&hl=pt-PT&gl=PT&ceid=PT:pt-PT",
-        "prompt": OVERSEAS_PROMPT,
-        "articles_to_fetch": 5
-    },
     # --- 中南米 ---
     {
         "region": "latin_america",
-        "country_code": "brazil",
+        "country_code": "br",
         "country_name": "ブラジル",
-        "url": "https://news.google.com/rss/search?q=café&hl=pt-BR&gl=BR&ceid=BR:pt-BR",
+        "url": "https://news.google.com/rss/search?q=café&hl=pt-BR&gl=BR&ceid=BR:pt",
         "prompt": OVERSEAS_PROMPT,
         "articles_to_fetch": 5
     },
     {
         "region": "latin_america",
-        "country_code": "colombia",
+        "country_code": "co",
         "country_name": "コロンビア",
         "url": "https://news.google.com/rss/search?q=café&hl=es-419&gl=CO&ceid=CO:es-419",
         "prompt": OVERSEAS_PROMPT,
@@ -213,7 +215,7 @@ FEEDS = [
         "region": "africa",
         "country_code": "et",
         "country_name": "エチオピア",
-        "url": "https://news.google.com/rss/search?q=coffee&hl=en-ET&gl=ET&ceid=ET:en",
+        "url": "https://news.google.com/rss/search?q=coffee&hl=en&gl=ET&ceid=ET:en",
         "prompt": OVERSEAS_PROMPT,
         "articles_to_fetch": 5
     },
@@ -221,7 +223,7 @@ FEEDS = [
         "region": "africa",
         "country_code": "ke",
         "country_name": "ケニア",
-        "url": "https://news.google.com/rss/search?q=coffee&hl=en-KE&gl=KE&ceid=KE:en",
+        "url": "https://news.google.com/rss/search?q=coffee&hl=en&gl=KE&ceid=KE:en",
         "prompt": OVERSEAS_PROMPT,
         "articles_to_fetch": 5
     },
@@ -229,7 +231,7 @@ FEEDS = [
         "region": "africa",
         "country_code": "ug",
         "country_name": "ウガンダ",
-        "url": "https://news.google.com/rss/search?q=coffee&hl=en-UG&gl=UG&ceid=UG:en",
+        "url": "https://news.google.com/rss/search?q=coffee&hl=en&gl=UG&ceid=UG:en",
         "prompt": OVERSEAS_PROMPT,
         "articles_to_fetch": 5
     },
@@ -237,7 +239,7 @@ FEEDS = [
         "region": "africa",
         "country_code": "rw",
         "country_name": "ルワンダ",
-        "url": "https://news.google.com/rss/search?q=coffee&hl=en-RW&gl=RW&ceid=RW:en",
+        "url": "https://news.google.com/rss/search?q=coffee&hl=en&gl=RW&ceid=RW:en",
         "prompt": OVERSEAS_PROMPT,
         "articles_to_fetch": 5
     }

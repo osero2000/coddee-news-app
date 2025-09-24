@@ -7,7 +7,7 @@ export const revalidate = 3600;
 
 export default async function HomePage() {
   // サーバーサイドでデータを一度だけ取得
-  const { japanArticles, overseasArticles } = await getArticles();
+  const { japanArticles, overseasArticles, debugCounts } = await getArticles();
 
   return (
     <div className="bg-stone-50 min-h-screen text-stone-800">
@@ -22,6 +22,7 @@ export default async function HomePage() {
         <ArticleBrowser
           japanArticles={japanArticles}
           allOverseasArticles={overseasArticles}
+          debugCounts={debugCounts}
         />
       </main>
       <footer className="text-center py-8 mt-8 border-t border-stone-200">
