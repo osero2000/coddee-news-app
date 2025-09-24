@@ -40,6 +40,8 @@ def fetch_and_summarize_articles(req: https_fn.Request) -> https_fn.Response:
         # 実行中のタイトル重複をチェックするためのセット
         processed_title_prefixes = set()
         TITLE_PREFIX_LENGTH = 30 # タイトルの先頭何文字で重複判定するか
+        # 今回の収集処理をグループ化するためのユニークID（実行開始時のタイムスタンプ）
+        batch_id = int(time.time())
 
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -61,6 +63,8 @@ def fetch_and_summarize_articles(req: https_fn.Request) -> https_fn.Response:
 
             # 設定ファイルから取得件数を読み込むよ
             num_articles_to_fetch = feed['articles_to_fetch']
+            # 記事の処理順を記録するためのカウンター（国ごとにリセット）
+            sequence_counter = 0
 
             # 各カテゴリから最新の記事を処理するよ
             for item in root.findall('.//item')[:num_articles_to_fetch]:
@@ -141,7 +145,9 @@ def fetch_and_summarize_articles(req: https_fn.Request) -> https_fn.Response:
                         'region_name': config.REGIONS[feed['region']],
                         'country_code': feed['country_code'],
                         'country_name': feed['country_name'],
-                        'created_at': firestore.SERVER_TIMESTAMP
+                        'created_at': firestore.SERVER_TIMESTAMP,
+                        'batch_id': batch_id, # 収集バッチID
+                        'sequence_id': sequence_counter # バッチ内での処理順
                     }
                     batch.set(article_ref, article_data, merge=True) # バッチに書き込み操作を追加
                     total_articles_saved += 1
@@ -149,6 +155,9 @@ def fetch_and_summarize_articles(req: https_fn.Request) -> https_fn.Response:
                 except Exception as e:
                     print(f"  [エラー] 記事 '{title}' の処理中にエラーが発生しました: {e}")
                     continue # この記事の処理をスキップして次に進む
+                finally:
+                    # 成功・失敗に関わらずカウンターを増やす
+                    sequence_counter += 1
             
             # サーバーに負荷をかけないように、ちょっと待つ
             print("  次の国に行く前にちょっと休憩... ☕")

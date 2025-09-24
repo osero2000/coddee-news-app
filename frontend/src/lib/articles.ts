@@ -21,6 +21,8 @@ export type Article = {
   country_code: string;
   country_name: string;
   created_at: string;
+  batch_id?: number; // 収集バッチID
+  sequence_id?: number; // 新しいフィールドを追加
   tags?: string[];
 };
 
@@ -51,25 +53,36 @@ const MAX_OTHER_REGIONS_ARTICLES_COUNT = 50;
 export const getArticles = async () => {
   const articlesCollection = collection(db, "articles");
 
-  // Promise.allを使用して、日本と海外のニュース取得を並列実行し高速化
-  const [japanSnapshot, ...overseasSnapshots] = await Promise.all([
-    // 日本の記事を15件取得
-    getDocs(query(articlesCollection, where("region", "==", "japan"), orderBy("published_at", "desc"), limit(MAX_JAPAN_ARTICLES_COUNT))),
-    // アメリカの記事を15件取得
-    getDocs(query(articlesCollection, where("region", "==", "us"), orderBy("published_at", "desc"), limit(MAX_US_ARTICLES_COUNT))),
-    // その他の海外リージョンの記事をそれぞれ50件ずつ取得
+  // 各リージョンごとに記事を取得する関数
+  const fetchArticlesForRegion = (region: string, limitCount: number) => {
+    const q = query(
+      articlesCollection,
+      where("region", "==", region),
+      orderBy("batch_id", "desc"),
+      orderBy("sequence_id", "asc"),
+      limit(limitCount)
+    );
+    return getDocs(q);
+  };
+
+  const [japanSnapshot, usSnapshot, ...otherRegionsSnapshots] = await Promise.all([
+    fetchArticlesForRegion("japan", MAX_JAPAN_ARTICLES_COUNT),
+    fetchArticlesForRegion("us", MAX_US_ARTICLES_COUNT),
     ...["europe", "asia", "latin_america", "africa"].map(region =>
-      getDocs(query(articlesCollection, where("region", "==", region), orderBy("published_at", "desc"), limit(MAX_OTHER_REGIONS_ARTICLES_COUNT)))
+      fetchArticlesForRegion(region, MAX_OTHER_REGIONS_ARTICLES_COUNT)
     ),
   ]);
 
   const japanArticles = processSnapshot(japanSnapshot);
-  const overseasArticles = overseasSnapshots.flatMap(snap => processSnapshot(snap));
+  const overseasArticles = [
+    ...processSnapshot(usSnapshot),
+    ...otherRegionsSnapshots.flatMap(snap => processSnapshot(snap)),
+  ];
 
   // デバッグ用に各スナップショットの件数を返す
   const debugCounts = {
     japan: japanSnapshot.size,
-    overseas: overseasSnapshots.reduce((acc, snap) => acc + snap.size, 0),
+    overseas: usSnapshot.size + otherRegionsSnapshots.reduce((acc, snap) => acc + snap.size, 0),
   };
 
   return { japanArticles, overseasArticles, debugCounts };
