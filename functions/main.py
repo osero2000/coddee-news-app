@@ -37,6 +37,9 @@ def fetch_and_summarize_articles(req: https_fn.Request) -> https_fn.Response:
         total_articles_saved = 0
         # バッチ処理用のオブジェクトを準備
         batch = db.batch()
+        # 実行中のタイトル重複をチェックするためのセット
+        processed_title_prefixes = set()
+        TITLE_PREFIX_LENGTH = 30 # タイトルの先頭何文字で重複判定するか
 
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -65,14 +68,32 @@ def fetch_and_summarize_articles(req: https_fn.Request) -> https_fn.Response:
                 link = item.find('link').text
                 pub_date_str = item.find('pubDate').text
 
+                # --- ▼▼▼ タイトルによる重複排除 ▼▼▼ ---
+                title_prefix = title[:TITLE_PREFIX_LENGTH]
+                if title_prefix in processed_title_prefixes:
+                    print(f"  [スキップ] タイトルが類似した記事を既に処理済みです: {title}")
+                    continue # この記事の処理をスキップ
+                # --- ここまで ---
+
+                # --- ▼▼▼ 重複排除のための修正 ▼▼▼ ---
+                # linkのリダイレクト先の最終URLを取得して、それを記事のユニークなIDとする
+                try:
+                    # HEADリクエストで効率的に最終URLを取得（タイムアウトも設定）
+                    head_response = requests.head(link, headers=headers, allow_redirects=True, timeout=10)
+                    head_response.raise_for_status()
+                    final_url = head_response.url
+                except requests.exceptions.RequestException as e:
+                    print(f"  [警告] 最終URLの取得に失敗しました: {e}。元のリンクをIDとして使用します。 Link: {link}")
+                    final_url = link # 失敗した場合は元のリンクをそのまま使う
+
                 # RSSの公開日時をパースしてdatetimeオブジェクトに変換するよ
                 try:
                     pub_date = parsedate_to_datetime(pub_date_str)
                 except (TypeError, ValueError):
                     pub_date = datetime.now(timezone.utc) # パース失敗したら今の時間
 
-                # Firestoreに保存するために、記事のリンクをIDにする（重複防止！）
-                doc_id = hashlib.sha256(link.encode('utf-8')).hexdigest()
+                # 最終URLをハッシュ化してFirestoreのドキュメントIDにする（強力な重複防止！）
+                doc_id = hashlib.sha256(final_url.encode('utf-8')).hexdigest()
                 article_ref = db.collection('articles').document(doc_id)
 
                 # --- 古いデータのお掃除機能 ---
@@ -87,6 +108,9 @@ def fetch_and_summarize_articles(req: https_fn.Request) -> https_fn.Response:
 
                 try:
                     print(f"  処理中の記事: {title}")
+
+                    # このタイトルを処理済みとしてセットに追加
+                    processed_title_prefixes.add(title_prefix)
 
                     # Geminiくんに要約をお願いする！
                     prompt_text = feed['prompt'].format(title=title, link=link)
@@ -109,6 +133,7 @@ def fetch_and_summarize_articles(req: https_fn.Request) -> https_fn.Response:
                     article_data = {
                         'title': processed_title,
                         'link': link,
+                        'original_link': final_url, # 最終的なURLも保存しておく
                         'summary': summary,
                         'tags': tags, # 生成したタグを保存
                         'published_at': pub_date,
