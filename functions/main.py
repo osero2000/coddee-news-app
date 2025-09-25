@@ -32,7 +32,7 @@ def fetch_and_summarize_articles(req: https_fn.Request) -> https_fn.Response:
     try:
         genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
         db = firestore.client()
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.5-flash-lite')
 
         total_articles_saved = 0
         # バッチ処理用のオブジェクトを準備
